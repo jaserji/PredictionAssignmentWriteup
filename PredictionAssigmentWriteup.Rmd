@@ -1,0 +1,82 @@
+---
+title: "PredictionAssignmentWriteup"
+author: "Jaserji"
+date: "5/2/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Introduction
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants and predict how well the participants do the exercises.
+
+## Exploratory Data Analysis and Data Cleaning
+```{r message=FALSE }
+# Load libraries
+suppressMessages(library(knitr))
+suppressMessages(library(caret))
+suppressMessages(library(rpart))
+suppressMessages(library(rpart.plot))
+suppressMessages(library(randomForest))
+suppressMessages(library(corrplot))
+```
+
+The two datasets use for the study are loaded, we create partition from training dataset and we clean the data chosing only valid rows and columns
+```{r message=FALSE }
+set.seed(12345)
+# Read data sets
+training <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+testing <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+dim(training)
+dim(testing)
+# Partition from training dataset
+inTrain  <- createDataPartition(training$classe, p=0.7, list=FALSE)
+trainset <- training[inTrain,]
+testset  <- training[-inTrain,]
+
+# Remove first 7 columns because they do not provide useful information
+head(names(training),7)
+trainset <- trainset[, -(1:7)]
+testset  <- testset[, -(1:7)]
+# Remove near zero var from trainset
+NZV <- nearZeroVar(trainset)
+trainset <- trainset[, -NZV]
+testset  <- testset[, -NZV]
+# Remove rows where NA are bigger than 95%
+navalues    <- sapply(trainset, function(x) mean(is.na(x))) > 0.95
+trainset <- trainset[, navalues==FALSE]
+testset  <- testset[, navalues==FALSE]
+
+# Final dimension of training dataset 
+dim(trainset)
+dim(testset)
+```
+
+## Machine learning study
+
+We will compare the result between two algorithms: Random Forest and Decision Tree
+
+### Random Forest model
+```{r message=FALSE }
+outrf <- train(classe ~ . , data=trainset,method="rf")
+predictedrf <- predict(outrf, testset)
+confusionMatrix(testset$classe, predictedrf)
+```
+
+### Decision Tree  model
+```{r message=FALSE }
+outdt <- rpart(classe ~ . , data=trainset,method="class")
+predicteddt <- predict(outdt, testset, type="class")
+confusionMatrix(testset$classe, predicteddt)
+rpart.plot(outdt)
+```
+
+## Results
+
+We observed an Accuracy of 99.81% using Random Forest, which is bigger than the accuracy in decision tree option. Due to this value we will use this model for calculating the results.
+```{r message=FALSE }
+testing_predicted <- predict(outrf, testing)
+testing_predicted
+```
